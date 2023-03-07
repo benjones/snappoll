@@ -1,0 +1,5 @@
+div.question
+  p #{question}
+    ul
+      -foreach(answer; answers)
+        li #{answer}

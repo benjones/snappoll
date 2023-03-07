@@ -2,11 +2,8 @@ h1 {
    color: blue;
 }
 
-#qrCodeImage {
-    height: 100%;
-    object-fit: contain;
-}
 
+/* make the qrCode fill the whole height of the browser window */
 html, body {
     height: 100%;
 }
@@ -16,4 +13,31 @@ html, body {
     display: flex;
     align-items: center;
     flex-flow: column nowrap;
+}
+
+#qrCodeImage {
+    height: 100%;
+    object-fit: contain;
+}
+
+#questionEditorContainer {
+    display: flex;
+    flex-flow: row nowrap;
+    height: 100%;
+
+}
+
+#editorPane {
+    flex: 1;
+    padding: 20px;
+}
+
+#previewPane {
+    flex: 1;
+    padding: 20px;
+}
+
+
+#editor {
+    min-height: 400px;
 }

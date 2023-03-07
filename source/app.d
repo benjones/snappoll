@@ -8,6 +8,15 @@ import std.array;
 import core.sys.posix.netinet.in_;
 
 
+@safe struct Question {
+    string question;
+    string[] answers;
+
+    void toHTML(HTTPServerResponse res){
+        res.render!("question.dt", question, answers);
+    }
+}
+
 void main()
 {
 	auto settings = new HTTPServerSettings;
@@ -32,6 +41,15 @@ void main()
         sendJoinQRCode(res, resp, settings.port);
     });
 
+
+    router.post("/updateQuestion", (res, resp){
+            if(isLocalhost(res.clientAddress)){
+                updateQuestion(res, resp);
+            } else {
+                resp.statusCode = 403;
+                resp.writeBody("only admin can update the question");
+            }
+        });
 
     router.get("/eventStream", &eventStream);
 
@@ -205,5 +223,21 @@ void sendJoinQRCode(HTTPServerRequest req, HTTPServerResponse res, int port) @tr
 
     res.contentType = "image/svg+xml";
     res.writeBody(svgString);
+
+}
+
+void updateQuestion(HTTPServerRequest req, HTTPServerResponse res) @safe{
+    if("questionText" !in req.form){
+        res.statusCode = 400;
+        res.writeBody("missing question text");
+        return;
+    }
+
+    auto lines = req.form["questionText"].split("\n");
+    if(lines.empty){
+        lines = ["no question provided"];
+    }
+    auto question = Question(lines.front, lines[1 .. $]);
+    question.toHTML(res);
 
 }
