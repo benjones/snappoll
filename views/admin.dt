@@ -27,7 +27,9 @@ html
           - tabHeader("questionTab", "Question Editor", "questionEditor");
           - tabHeader("resultsTab", "Poll Results", "pollResults");
 
-    div#qrCode.col.s12 This is the QR code!
+    div#qrCode.col.s12
+      p Scan this QR code to see and answer poll questions
+      img#qrCodeImage(src="qrCode")
 
     div#questionEditor.col.s12 this is the question editor
 
