@@ -1,0 +1,11 @@
+- void css(string file)
+  link(rel= 'stylesheet', type='text/css', href='styles/#{file}.css')
+
+doctype html
+html
+  head
+    title SnapPoll
+    - css("styles");
+    script(src='scripts/scripts.js')
+  body
+    h1 Hello World

@@ -1,0 +1,18 @@
+{
+  "authors": [
+    "Ben Jones"
+  ],
+  "copyright": "Copyright © 2023, Ben Jones",
+  "dependencies": {
+      "vibe-d": "~>0.9",
+      "vibe-d:tls": "*",
+      "qrcode": "~>1.4.0"
+  },
+  "subConfigurations": {
+      "vibe-d:tls": "notls",
+      "qrcode" : "nopng"
+  },
+  "description": "A simple anonymous polling app",
+  "license": "MIT",
+  "name": "snappoll"
+}

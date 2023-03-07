@@ -1,0 +1,35 @@
+- void css(string file)
+  link(rel= 'stylesheet', type='text/css', href='styles/#{file}.css')
+
+- void tabHeader(string ID, string name, string sectionID)
+  li.tab(id='#{ID}')
+    a(href='\##{sectionID}') #{name}
+
+
+doctype html
+html
+  head
+    title SnapPoll
+    link(rel='stylesheet', href='https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.css')
+    script(src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.js")
+    - css("styles");
+    script(src='scripts/scripts.js')
+
+
+  body
+    nav(class="nav-extended")
+      div.nav-wrapper
+        a.brand-logo(href="#") Snap Poll
+
+      div.nav-content
+        ul.tabs.tabs-transparent
+          - tabHeader("qrTab", "QR Code", "qrCode");
+          - tabHeader("questionTab", "Question Editor", "questionEditor");
+          - tabHeader("resultsTab", "Poll Results", "pollResults");
+
+    div#qrCode.col.s12 This is the QR code!
+
+    div#questionEditor.col.s12 this is the question editor
+
+
+    div#pollResults.col.s12 These are the poll results

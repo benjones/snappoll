@@ -1,0 +1,17 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/snappoll
+snappoll.so
+snappoll.dylib
+snappoll.dll
+snappoll.a
+snappoll.lib
+snappoll-test-*
+*.exe
+*.pdb
+*.o
+*.obj
+*.lst
+*~
