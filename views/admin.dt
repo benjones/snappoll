@@ -5,7 +5,6 @@
   li.tab(id='#{ID}')
     a(href='\##{sectionID}') #{name}
 
-
 doctype html
 html
   head
@@ -17,25 +16,33 @@ html
 
 
   body
-    nav(class="nav-extended")
+    nav.nav-extended
       div.nav-wrapper
         a.brand-logo(href="#") Snap Poll
 
       div.nav-content
-        ul.tabs.tabs-transparent
+        ul#tabList.tabs.tabs-transparent
           - tabHeader("qrTab", "QR Code", "qrCode");
           - tabHeader("questionTab", "Question Editor", "questionEditor");
           - tabHeader("resultsTab", "Poll Results", "pollResults");
 
-    div#qrCode.col.s12
-      p Scan this QR code to see and answer poll questions
-      img#qrCodeImage(src="qrCode")
+    main
+      div#qrCode.container
+        div.row
+          p.col.s4.offset-s4 Scan this QR code to see and answer poll questions
+        div#qrRow.row
+          img#qrCodeImage(src="qrCode")
 
-    div#questionEditor.col.s12 this is the question editor
-      div#questionEditorContainer
-        div#editorPane
-          textarea#editor this is in the textarea
-        div#previewPane
-          p this is the preview pane
+      div#questionEditor.container
+        div.row
+          h3.col.s4.offset-s4 Question Editor
+        div#questionEditorContainer.row
+          div#editorPane.col.s5
+            textarea#editor
+          div#previewPane.col.s5
+            p
+        div.row
+          a#startPolling.waves-effect.waves-light.btn-large.col.s4.offset-s4 Start Polling
 
-    div#pollResults.col.s12 These are the poll results
+      div#pollResults.container
+        p These are the poll results

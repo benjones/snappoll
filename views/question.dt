@@ -1,5 +1,6 @@
 div.question
-  p #{question}
-    ul
-      -foreach(answer; answers)
-        li #{answer}
+  ul.collection.with-header
+    li.collection-header
+      h4 #{question}
+    -foreach(answer; answers)
+      li.collection-item #{answer}

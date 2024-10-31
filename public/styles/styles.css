@@ -4,8 +4,12 @@ h1 {
 
 
 /* make the qrCode fill the whole height of the browser window */
-html, body {
+html, body, main {
     height: 100%;
+}
+
+#qrRow {
+    height:90%;
 }
 
 #qrCode {

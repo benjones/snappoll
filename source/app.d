@@ -4,6 +4,7 @@ import std.conv : to;
 import core.time : seconds;
 import std.algorithm;
 import std.array;
+import std.traits : ReturnType;
 
 import core.sys.posix.netinet.in_;
 
@@ -17,9 +18,58 @@ import core.sys.posix.netinet.in_;
     }
 }
 
+@safe struct PollResults {
+
+    int[] votes;
+
+    void newQuestion(const ref Question question){
+        votes = new int[question.answers.length];
+    }
+
+}
+
+@safe struct StreamListeners {
+    alias StreamType = ReturnType!((HTTPServerResponse res){ return res.bodyWriter;});
+        //vibe.internal.interfaceproxy.InterfaceProxy!(vibe.core.stream.OutputStream);
+    StreamType[] outputStreams;
+
+    void addStream(StreamType stream){
+        outputStreams ~= stream;
+    }
+
+    void sendMessage(string message){
+        bool[const(StreamType)] toDelete;
+        foreach(stream ; outputStreams){
+            try {
+
+            } catch(Exception ex){
+                logInfo("exception in sendMessage");
+                logInfo(ex.msg);
+                toDelete[stream] = true;
+            }
+        }
+
+        if(toDelete.length > 0){
+            //this is considered unsafe for some reason?
+            outputStreams = outputStreams.remove!(x => x in toDelete);
+        }
+    }
+
+}
+
 void main()
 {
-	auto settings = new HTTPServerSettings;
+
+    import std.file: readText;
+
+    Question currentQuestion;
+    PollResults results;
+
+    const adminHtml = readText("svelte-frontend/dist/admin.html");
+    const userHtml = readText("svelte-frontend/dist/index.html");
+
+
+    auto settings = new HTTPServerSettings;
 	settings.port = 8080;
 	settings.bindAddresses = ["::1", "127.0.0.1", "0.0.0.0", "::"];
     settings.accessLogToConsole = true;
@@ -29,11 +79,15 @@ void main()
     router.get("/", (req, res){
             logInfo("calling serveIndex");
             logInfo(req.clientAddress.toAddressString());
-
+            res.contentType = "text/html";
             if(isLocalhost(req.clientAddress)){
-                res.render!("admin.dt");
+                logInfo("for admin");
+                //res.render!("admin.dt");
+                res.writeBody(adminHtml);
             } else {
-                res.render!("index.dt");
+                logInfo("for normal user");
+                //res.render!("index.dt");
+                res.writeBody(userHtml);
             }
         });
 
@@ -44,7 +98,7 @@ void main()
 
     router.post("/updateQuestion", (res, resp){
             if(isLocalhost(res.clientAddress)){
-                updateQuestion(res, resp);
+                updateQuestion(res, resp, results, currentQuestion);
             } else {
                 resp.statusCode = 403;
                 resp.writeBody("only admin can update the question");
@@ -53,7 +107,10 @@ void main()
 
     router.get("/eventStream", &eventStream);
 
-    router.get("*", serveStaticFiles("./public"));
+    //router.get("*", serveStaticFiles("./public"));
+    //Normal user could theoretically access the admin HTML, but I don't think
+    //that's any sort of vulnerability since the updateQuestion endpoint is protected
+    router.get("*", serveStaticFiles("./svelte-frontend/dist"));
 
     foreach(k, v; router.getAllRoutes){
         logInfo("route: " ~ k.to!string ~ " -> " ~ v.to!string);
@@ -91,9 +148,10 @@ bool isLocalhost(const ref NetworkAddress address) @safe {
 
     const family = address.family;
     switch(family){
-        case AddressFamily.UNIX: return true;
+        case AddressFamily.UNIX:
+            return true;
         case AddressFamily.INET:
-            const addr4 = address.sockAddrInet4.sin_addr.s_addr;
+            const addr4 = ntohl(address.sockAddrInet4.sin_addr.s_addr);
             return addr4 == InternetAddress.parse("127.0.0.1");
         case AddressFamily.INET6:
             const addr6 = address.sockAddrInet6.sin6_addr.s6_addr;
@@ -221,12 +279,14 @@ void sendJoinQRCode(HTTPServerRequest req, HTTPServerResponse res, int port) @tr
     scope writer = new QrCodeWriter(svg);
     const svgString = writer.writeString(address);
 
+    //TODO add text to the bottom of the QR Code
+
     res.contentType = "image/svg+xml";
     res.writeBody(svgString);
 
 }
 
-void updateQuestion(HTTPServerRequest req, HTTPServerResponse res) @safe{
+void updateQuestion(HTTPServerRequest req, HTTPServerResponse res, ref PollResults results, out Question currentQuestion) @safe{
     if("questionText" !in req.form){
         res.statusCode = 400;
         res.writeBody("missing question text");
@@ -238,6 +298,15 @@ void updateQuestion(HTTPServerRequest req, HTTPServerResponse res) @safe{
         lines = ["no question provided"];
     }
     auto question = Question(lines.front, lines[1 .. $]);
+    const startPolling = "startPolling" in req.form && req.form["startPolling"];
+    if(startPolling){
+        currentQuestion = question;
+        resetPolling(results, question);
+    }
     question.toHTML(res);
 
+}
+
+void resetPolling(ref PollResults results, const ref Question question) @safe{
+    results.newQuestion(question);
 }

@@ -9,7 +9,7 @@
       "qrcode": "~>1.4.0"
   },
   "subConfigurations": {
-      "vibe-d:tls": "notls",
+      "vibe-d:tls": "openssl-static",
       "qrcode" : "nopng"
   },
   "description": "A simple anonymous polling app",

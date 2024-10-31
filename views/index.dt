@@ -5,6 +5,8 @@ doctype html
 html
   head
     title SnapPoll
+    link(rel='stylesheet', href='https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.css')
+    script(src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.js")
     - css("styles");
     script(src='scripts/scripts.js')
   body
