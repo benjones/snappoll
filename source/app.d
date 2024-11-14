@@ -20,13 +20,91 @@ import core.sys.posix.netinet.in_;
 
 @safe struct PollResults {
 
-    int[] votes;
+    private int[] votes;
+    private LocalManualEvent newVoteEvent;
+
 
     void newQuestion(const ref Question question){
         votes = new int[question.answers.length];
     }
 
+    void vote(int option){
+        logInfo("got vote for %s", option);
+        if(option < votes.length){
+            votes[option]++;
+        }
+        logInfo("new vote, tally is  %s", votes);
+    }
+
+    void waitForVotes(){
+
+    }
+
+    string toString() @safe{
+        return "Votes: " ~ votes.to!string;
+    }
+
 }
+
+
+//TODO: Could implement by splitting into publicAPI and privateAPI interfaes
+//and having a different HTTPListener for each
+
+@path("/api/")
+interface snappollAPI {
+
+    @before!checkBefore("isLocalhost")
+    //    @after!dummy
+    @bodyParam("q")
+    void postNewQuestion(Question q, bool isLocalhost);
+
+    void postVote(int option);
+}
+
+class SnappollAPIImpl : snappollAPI {
+
+    Question currentQuestion;
+
+    PollResults* results;
+
+    @safe:
+
+    this(Question q, PollResults* res){
+        currentQuestion = q;
+        results = res;
+    }
+
+    override:
+
+    void postNewQuestion(Question q, bool isLocalhost){
+        logInfo("new question: %s, localhost? %s", q, isLocalhost);
+        if(!isLocalhost) return;
+        currentQuestion = q;
+        results.newQuestion(q);
+        //return 0;
+    }
+
+    void postVote(int option){
+        results.vote(option);
+    }
+}
+
+@safe bool checkBefore(HTTPServerRequest req, HTTPServerResponse res){
+    logInfo("checking before!");
+    const ret = isLocalhost(req.clientAddress);
+    if(!ret){
+        res.statusCode = 403;
+        res.statusPhrase = "forbidden";
+    }
+    return ret;
+}
+
+
+@safe int dummy(int old, HTTPServerRequest req, HTTPServerResponse res){
+    logInfo("Dummy!!!");
+    return old;
+}
+
 
 @safe struct StreamListeners {
     alias StreamType = ReturnType!((HTTPServerResponse res){ return res.bodyWriter;});
@@ -57,8 +135,44 @@ import core.sys.posix.netinet.in_;
 
 }
 
+struct EventStream {
+
+    PollResults* pollResults;
+    @safe:
+    void handler(HTTPServerRequest req, HTTPServerResponse res){
+        res.headers["Content-Type"] = "text/event-stream";
+        res.headers["Cache-Control"] = "no-cache";
+        logInfo("request from eventStream");
+        try {
+            auto writer = res.bodyWriter;
+
+            while(true){
+                if(!res.connected){
+                    () @trusted { logInfo("event stream client disconnected"); }();
+                    break;
+                }
+                const message = "data: message votes: " ~ pollResults.toString ~ "\n\n";
+                () @trusted {
+                    logInfo("sending SSE message: %s", message);
+                }();
+                writer.write(message);
+                writer.flush();
+                sleep(1.seconds);
+            }
+        } catch (Exception e){
+            () @trusted {
+                logInfo("Event stream crashed: %s", e);
+            }();
+        }
+    }
+}
+
+
 void main()
 {
+
+    setLogLevel(LogLevel.info);
+
 
     import std.file: readText;
 
@@ -69,11 +183,16 @@ void main()
     const userHtml = readText("svelte-frontend/dist/index.html");
 
 
+    auto eventStream = EventStream(&results);
+    auto API = new SnappollAPIImpl(currentQuestion, &results);
+
     auto settings = new HTTPServerSettings;
 	settings.port = 8080;
 	settings.bindAddresses = ["::1", "127.0.0.1", "0.0.0.0", "::"];
     settings.accessLogToConsole = true;
 
+
+    const qrSVG = generateQRCode(settings.port);
 
     auto router = new URLRouter;
     router.get("/", (req, res){
@@ -91,21 +210,15 @@ void main()
             }
         });
 
-    router.get("/qrCode", (res, resp){
-        sendJoinQRCode(res, resp, settings.port);
+    router.get("/qrCode", (req, res) @safe{
+            res.contentType = "image/svg+xml";
+            res.writeBody(qrSVG);
     });
 
+    //for now, just posting new question
+    router.registerRestInterface(API, MethodStyle.camelCase);
 
-    router.post("/updateQuestion", (res, resp){
-            if(isLocalhost(res.clientAddress)){
-                updateQuestion(res, resp, results, currentQuestion);
-            } else {
-                resp.statusCode = 403;
-                resp.writeBody("only admin can update the question");
-            }
-        });
-
-    router.get("/eventStream", &eventStream);
+    router.get("/eventStream", (req, res){ eventStream.handler(req, res);});
 
     //router.get("*", serveStaticFiles("./public"));
     //Normal user could theoretically access the admin HTML, but I don't think
@@ -126,19 +239,6 @@ void main()
 	runApplication();
 }
 
-void eventStream(HTTPServerRequest req, HTTPServerResponse res){
-    res.headers["Content-Type"] = "text/event-stream;";
-
-    auto writer = res.bodyWriter;
-    int count = 0;
-    while(true){
-        const message = "data: message number: " ~ count.to!string ~ "\n\n";
-        writer.write(message);
-        writer.flush();
-        sleep(1.seconds);
-        count++;
-    }
-}
 
 
 bool isLocalhost(const ref NetworkAddress address) @safe {
@@ -199,6 +299,45 @@ struct LinkedListAdaptor(alias nextField, T){
 }
 
 void sendJoinQRCode(HTTPServerRequest req, HTTPServerResponse res, int port) @trusted{
+
+    //TODO add text to the bottom of the QR Code
+
+
+}
+
+void updateQuestion(HTTPServerRequest req, HTTPServerResponse res, ref PollResults results, out Question currentQuestion) @safe{
+
+    //    logInfo("update question json: %s", req.json["question"]);
+    logInfo("form: %s", req.form["question"]);
+    return;
+
+    if("questionText" !in req.form){
+        res.statusCode = 400;
+        res.writeBody("missing question text");
+        return;
+    }
+
+    auto lines = req.form["questionText"].split("\n");
+    if(lines.empty){
+        lines = ["no question provided"];
+    }
+    auto question = Question(lines.front, lines[1 .. $]);
+    const startPolling = "startPolling" in req.form && req.form["startPolling"];
+    if(startPolling){
+        currentQuestion = question;
+        resetPolling(results, question);
+    }
+    question.toHTML(res);
+
+}
+
+void resetPolling(ref PollResults results, const ref Question question) @safe{
+    results.newQuestion(question);
+}
+
+
+
+string generateQRCode(int port){
     version(OSX){
         import core.sys.darwin.ifaddrs;
     }
@@ -264,7 +403,11 @@ void sendJoinQRCode(HTTPServerRequest req, HTTPServerResponse res, int port) @tr
     logInfo(to!string(cast(ulong)(buffer.ptr), 16) ~ " " ~ to!string(cast(ulong)ptr, 16));
 
     import std.format;
-    const address = format!"http://%s:%s/"(ptr.fromStringz(), port);
+
+
+    const address = (family == AF_INET)
+        ? format!"http://%s:%s/"(ptr.fromStringz(), port)
+        : format!"http://[%s]:%s/"(ptr.fromStringz(), port); //ipv6 gets square brackets
     logInfo("address: " ~ address);
 
 
@@ -277,36 +420,5 @@ void sendJoinQRCode(HTTPServerRequest req, HTTPServerResponse res, int port) @tr
 	svg.setForegroundColor(new Rgb(200,200,200));
 
     scope writer = new QrCodeWriter(svg);
-    const svgString = writer.writeString(address);
-
-    //TODO add text to the bottom of the QR Code
-
-    res.contentType = "image/svg+xml";
-    res.writeBody(svgString);
-
-}
-
-void updateQuestion(HTTPServerRequest req, HTTPServerResponse res, ref PollResults results, out Question currentQuestion) @safe{
-    if("questionText" !in req.form){
-        res.statusCode = 400;
-        res.writeBody("missing question text");
-        return;
-    }
-
-    auto lines = req.form["questionText"].split("\n");
-    if(lines.empty){
-        lines = ["no question provided"];
-    }
-    auto question = Question(lines.front, lines[1 .. $]);
-    const startPolling = "startPolling" in req.form && req.form["startPolling"];
-    if(startPolling){
-        currentQuestion = question;
-        resetPolling(results, question);
-    }
-    question.toHTML(res);
-
-}
-
-void resetPolling(ref PollResults results, const ref Question question) @safe{
-    results.newQuestion(question);
+    return writer.writeString(address);
 }

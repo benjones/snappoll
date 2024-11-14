@@ -4,7 +4,7 @@
   ],
   "copyright": "Copyright © 2023, Ben Jones",
   "dependencies": {
-      "vibe-d": "~>0.9",
+      "vibe-d": "~>0.10.1",
       "vibe-d:tls": "*",
       "qrcode": "~>1.4.0"
   },

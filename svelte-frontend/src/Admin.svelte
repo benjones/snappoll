@@ -1,12 +1,34 @@
 <script lang="ts">
   import QuestionEditor from './QuestionEditor.svelte'
+  import PollResults from './PollResults.svelte'
 
   function clickHandler(){
     console.log("clicked")
   }
 
 
+  async function startPolling(question){
+    console.log(question);
+
+    const response = await fetch("api/newQuestion", {
+      method: 'POST',
+      body: JSON.stringify(question),
+      headers : {
+        "Content-Type": "application/json"
+      }
+    })
+
+    console.log("got response")
+    console.log(response)
+
+    if(response.ok){
+      selectedTab = 'PollResults'
+    }
+  }
+
   let selectedTab = $state('QuestionEditor')
+
+
 
 </script>
 
@@ -23,9 +45,9 @@
   {#if selectedTab == 'QRCode'}
     <img src="qrCode" alt="QR Code for polling.  Todo, put the actual URL in the alt text somehow" />
   {:else if selectedTab =='QuestionEditor'}
-    <QuestionEditor />
+    <QuestionEditor startPollingCallback={startPolling} />
   {:else}
-    <p>{selectedTab}</p>
+    <PollResults />
   {/if}
   </div>
 

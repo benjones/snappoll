@@ -3,11 +3,13 @@
 
   import Question from './Question.svelte'
 
-  let userText = `Edit your question on the left.  The first line is the question?
+  let userText = $state(`Edit your question on the left.  The first line is the question?
 And each line is
 One
 Possible
-Answer`
+Answer`)
+
+  let {startPollingCallback} = $props()
 
   function parseQuestion(text){
     const lines = text.split('\n');
@@ -27,7 +29,7 @@ Answer`
   </div>
 
 </div>
-
+<button onclick={()=>{startPollingCallback(parseQuestion(userText))}} >Start Polling</button>
 
 
 <style>
