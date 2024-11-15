@@ -57,6 +57,8 @@ interface snappollAPI {
     void postNewQuestion(Question q, bool isLocalhost);
 
     void postVote(int option);
+
+    Question getCurrentQuestion();
 }
 
 class SnappollAPIImpl : snappollAPI {
@@ -83,6 +85,10 @@ class SnappollAPIImpl : snappollAPI {
 
     void postVote(int option){
         results.vote(option);
+    }
+
+    Question getCurrentQuestion(){
+        return *currentQuestion;
     }
 }
 
