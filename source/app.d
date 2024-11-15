@@ -12,10 +12,6 @@ import core.sys.posix.netinet.in_;
 @safe struct Question {
     string question;
     string[] answers;
-
-    /*    void toHTML(HTTPServerResponse res){
-        res.render!("question.dt", question, answers);
-        }*/
 }
 
 @safe struct PollResults {
@@ -41,7 +37,7 @@ import core.sys.posix.netinet.in_;
     }
 
     string toString() @safe const{
-        return "Votes: " ~ votes.to!string;
+        return votes.to!string;
     }
 
     int totalVotes() @safe const {
@@ -57,7 +53,6 @@ import core.sys.posix.netinet.in_;
 interface snappollAPI {
 
     @before!checkBefore("isLocalhost")
-    //    @after!dummy
     @bodyParam("q")
     void postNewQuestion(Question q, bool isLocalhost);
 
@@ -84,7 +79,6 @@ class SnappollAPIImpl : snappollAPI {
         if(!isLocalhost) return;
         *currentQuestion = q;
         results.newQuestion(q);
-        //return 0;
     }
 
     void postVote(int option){
@@ -103,40 +97,6 @@ class SnappollAPIImpl : snappollAPI {
 }
 
 
-@safe int dummy(int old, HTTPServerRequest req, HTTPServerResponse res){
-    logInfo("Dummy!!!");
-    return old;
-}
-
-
-@safe struct StreamListeners {
-    alias StreamType = ReturnType!((HTTPServerResponse res){ return res.bodyWriter;});
-        //vibe.internal.interfaceproxy.InterfaceProxy!(vibe.core.stream.OutputStream);
-    StreamType[] outputStreams;
-
-    void addStream(StreamType stream){
-        outputStreams ~= stream;
-    }
-
-    void sendMessage(string message){
-        bool[const(StreamType)] toDelete;
-        foreach(stream ; outputStreams){
-            try {
-
-            } catch(Exception ex){
-                logInfo("exception in sendMessage");
-                logInfo(ex.msg);
-                toDelete[stream] = true;
-            }
-        }
-
-        if(toDelete.length > 0){
-            //this is considered unsafe for some reason?
-            outputStreams = outputStreams.remove!(x => x in toDelete);
-        }
-    }
-
-}
 
 struct EventStream {
 
@@ -164,7 +124,7 @@ struct EventStream {
                 const newVotes = pollResults.totalVotes;
                 if(newVotes != totalVotes){
                     totalVotes = newVotes;
-                    const message = "data: message votes: " ~ pollResults.toString ~ "\n\n";
+                    const message = "data: " ~ pollResults.toString ~ "\n\n";
                     () @trusted {
                         logInfo("sending SSE message: %s", message);
                     }();
@@ -432,3 +392,34 @@ string generateQRCode(int port){
     scope writer = new QrCodeWriter(svg);
     return writer.writeString(address);
 }
+
+/*
+  @safe struct StreamListeners {
+    alias StreamType = ReturnType!((HTTPServerResponse res){ return res.bodyWriter;});
+        //vibe.internal.interfaceproxy.InterfaceProxy!(vibe.core.stream.OutputStream);
+    StreamType[] outputStreams;
+
+    void addStream(StreamType stream){
+        outputStreams ~= stream;
+    }
+
+    void sendMessage(string message){
+        bool[const(StreamType)] toDelete;
+        foreach(stream ; outputStreams){
+            try {
+
+            } catch(Exception ex){
+                logInfo("exception in sendMessage");
+                logInfo(ex.msg);
+                toDelete[stream] = true;
+            }
+        }
+
+        if(toDelete.length > 0){
+            //this is considered unsafe for some reason?
+            outputStreams = outputStreams.remove!(x => x in toDelete);
+        }
+    }
+
+}
+*/

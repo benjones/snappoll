@@ -1,9 +1,9 @@
 <script lang="ts">
 
-  let question = { "question": "This is the question",
-                   "answers" : ["one", "two", "three"]}
+  let question = $state({ "question": "This is the question",
+                          "answers" : ["one", "two", "three"]})
 
-  let votes  = [5, 8, 4]
+  let votes  = $state([5, 8, 4])
   let maxVotes = $derived( Math.max(1, ...votes))
 
   $effect(()=>{
@@ -11,6 +11,17 @@
     const evtSource = new EventSource("/eventStream");
     evtSource.onmessage = (event) => {
       console.log(event.data)
+      let asObj = JSON.parse(event.data)
+      console.log(asObj)
+
+      //TODO better differentiation here?
+      if( 'question' in asObj){
+        question = asObj;
+      } else {
+        //assume it's votes
+        votes = asObj
+      }
+
     }
     evtSource.onerror = (err) => {
       console.log("evt source error: ")
