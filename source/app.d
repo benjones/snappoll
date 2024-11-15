@@ -13,9 +13,9 @@ import core.sys.posix.netinet.in_;
     string question;
     string[] answers;
 
-    void toHTML(HTTPServerResponse res){
+    /*    void toHTML(HTTPServerResponse res){
         res.render!("question.dt", question, answers);
-    }
+        }*/
 }
 
 @safe struct PollResults {
@@ -40,10 +40,13 @@ import core.sys.posix.netinet.in_;
 
     }
 
-    string toString() @safe{
+    string toString() @safe const{
         return "Votes: " ~ votes.to!string;
     }
 
+    int totalVotes() @safe const {
+        return sum(votes);
+    }
 }
 
 
@@ -63,13 +66,13 @@ interface snappollAPI {
 
 class SnappollAPIImpl : snappollAPI {
 
-    Question currentQuestion;
+    Question* currentQuestion;
 
     PollResults* results;
 
     @safe:
 
-    this(Question q, PollResults* res){
+    this(Question* q, PollResults* res){
         currentQuestion = q;
         results = res;
     }
@@ -79,7 +82,7 @@ class SnappollAPIImpl : snappollAPI {
     void postNewQuestion(Question q, bool isLocalhost){
         logInfo("new question: %s, localhost? %s", q, isLocalhost);
         if(!isLocalhost) return;
-        currentQuestion = q;
+        *currentQuestion = q;
         results.newQuestion(q);
         //return 0;
     }
@@ -137,6 +140,7 @@ class SnappollAPIImpl : snappollAPI {
 
 struct EventStream {
 
+    Question* currentQuestion;
     PollResults* pollResults;
     @safe:
     void handler(HTTPServerRequest req, HTTPServerResponse res){
@@ -146,17 +150,28 @@ struct EventStream {
         try {
             auto writer = res.bodyWriter;
 
+            const questionMessage = "data: " ~ currentQuestion.serializeToJsonString() ~ "\n\n";
+            writer.write(questionMessage);
+            writer.flush();
+
+            int totalVotes = -1; //force poll results to be sent at least once
             while(true){
                 if(!res.connected){
                     () @trusted { logInfo("event stream client disconnected"); }();
                     break;
                 }
-                const message = "data: message votes: " ~ pollResults.toString ~ "\n\n";
-                () @trusted {
-                    logInfo("sending SSE message: %s", message);
-                }();
-                writer.write(message);
-                writer.flush();
+
+                const newVotes = pollResults.totalVotes;
+                if(newVotes != totalVotes){
+                    totalVotes = newVotes;
+                    const message = "data: message votes: " ~ pollResults.toString ~ "\n\n";
+                    () @trusted {
+                        logInfo("sending SSE message: %s", message);
+                    }();
+                    writer.write(message);
+                    writer.flush();
+                }
+
                 sleep(1.seconds);
             }
         } catch (Exception e){
@@ -183,8 +198,8 @@ void main()
     const userHtml = readText("svelte-frontend/dist/index.html");
 
 
-    auto eventStream = EventStream(&results);
-    auto API = new SnappollAPIImpl(currentQuestion, &results);
+    auto eventStream = EventStream(&currentQuestion, &results);
+    auto API = new SnappollAPIImpl(&currentQuestion, &results);
 
     auto settings = new HTTPServerSettings;
 	settings.port = 8080;
@@ -298,13 +313,8 @@ struct LinkedListAdaptor(alias nextField, T){
     }
 }
 
-void sendJoinQRCode(HTTPServerRequest req, HTTPServerResponse res, int port) @trusted{
 
-    //TODO add text to the bottom of the QR Code
-
-
-}
-
+/*
 void updateQuestion(HTTPServerRequest req, HTTPServerResponse res, ref PollResults results, out Question currentQuestion) @safe{
 
     //    logInfo("update question json: %s", req.json["question"]);
@@ -329,11 +339,11 @@ void updateQuestion(HTTPServerRequest req, HTTPServerResponse res, ref PollResul
     }
     question.toHTML(res);
 
-}
+    }
 
 void resetPolling(ref PollResults results, const ref Question question) @safe{
     results.newQuestion(question);
-}
+    }*/
 
 
 
