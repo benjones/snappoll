@@ -1,6 +1,6 @@
 <script lang="ts">
 
-  let { question, answers} = $props()
+  let { question, answers, onComplete} = $props()
 
   function handler(index){
     return async function (event){
@@ -18,7 +18,9 @@
       console.log(response)
 
       if(response.ok){
-        console.log("todo: redirect");
+        if(onComplete){
+          onComplete()
+        }
       }
     }
   }

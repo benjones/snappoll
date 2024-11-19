@@ -13,11 +13,18 @@
     currentQuestion = await response.json()
   })
 
+  let voted = $state(false)
 
 </script>
 
 <main>
-  <Question {...currentQuestion} />
+  {#if voted}
+  <p>Vote recorded</p>
+  {:else}
+  <Question question={currentQuestion.question} answers={currentQuestion.answers} onComplete={()=>{
+    voted = true
+    }} />
+  {/if}
 </main>
 
 <style>
